@@ -9,8 +9,6 @@ import sys
 sys.path.append('/opt/nvidia/jetson-gpio/lib/python/')
 sys.path.append('/opt/nvidia/jetson-gpio/lib/python/Jetson/GPIO')
 import RPi.GPIO as GPIO
-GPIO.cleanup()
-GPIO.setmode(GPIO.BOARD)
 import cv2
 import time
 import datetime
@@ -25,12 +23,10 @@ parser.add_argument('--weights_path', type=str, default='weights/yolov3-tiny.wei
 parser.add_argument('--class_path', type=str, default='data/coco.names', help='path to class label file')
 parser.add_argument('--conf_thres', type=float, default=0.7, help='object confidence threshold')
 parser.add_argument('--nms_thres', type=float, default=0.3, help='iou thresshold for non-maximum suppression')
-parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
 parser.add_argument('--n_cpu', type=int, default=2, help='number of cpu threads to use during batch generation')
 parser.add_argument('--img_size', type=int, default=416, help='size of each image dimension')
 parser.add_argument('--use_cuda', type=bool, default=True, help='whether to use cuda if available')
 opt = parser.parse_args()
-print(opt)
 
 cuda = torch.cuda.is_available() and opt.use_cuda
 
@@ -46,6 +42,8 @@ classes = load_classes(opt.class_path) # Extracts class labels from file
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 ###  GPIO   ###
+GPIO.cleanup()
+GPIO.setmode(GPIO.BOARD)
 backmotorinput_1 = 15
 backmotorinput_2 = 16
 frontmotorinput_1 = 21
@@ -79,8 +77,6 @@ def center():
     GPIO.output(frontmotorinput_1,GPIO.LOW)
     GPIO.output(frontmotorinput_2,GPIO.LOW)
 
-stop()
-center()
 ###   SH04   ###
 echo_left = 37
 trig_left = 38
@@ -134,8 +130,6 @@ def sr04_front():
     t2 = time.time()
     return (t2-t1)*34300/2
 
-print(sr04_right())
-assert 1==2
 ### -----   ###
 print ('\nPerforming object detection:')
 cap = cv2.VideoCapture(0)
@@ -177,18 +171,16 @@ while cap.isOpened():
                 class_ = classes[int(cls_pred)]
                 if center_point_x > mid_frame_start and center_point_x < mid_frame_end:
                     if class_ == 'car' or class_ == 'truck' or class_ == 'bus':
-                        print('have a car !!!')
+                        print('图像中部有一辆车')
                         left_distan = sr04_left()
                         right_distan = sr04_right()
                         front_distan = sr04_front()
                         if front_distan < 50:
                             stop()
-                            print('    something in the front!!!')
                         else:
                             forward()
                         if left_distan <= 40 and right_distan <=40:
                             center()
-                            print('    front have a car but left and right have not enough distans!!!')
                         elif left_distan > 40 and right_distan <= 40:
                             left()
                             time.sleep(0.40)
@@ -196,7 +188,6 @@ while cap.isOpened():
                             right()
                             time.sleep(0.2)
                             center()
-                            print('    forward and turn left!!!')
                         elif left_distan <= 40 and right_distan > 40:
                             right()
                             time.sleep(0.40)
@@ -204,7 +195,6 @@ while cap.isOpened():
                             left()
                             time.sleep(0.2)
                             center()
-                            print('    forward and turn right!!!')
                         else:
                             left()
                             time.sleep(0.40)
@@ -212,105 +202,91 @@ while cap.isOpened():
                             right()
                             time.sleep(0.2)
                             center()
-                            print('    both path can go auto choice left!!!')
                     elif class_ == 'person' or class_ == 'bicycle':
-                        print('have a person!!!!')
+                        print('图像中部有一个人或自行车')
                         left_distan = sr04_left()
                         right_distan = sr04_right()
-                        #front_distan = sr04_front()
-                        #if front_distan < 50:
-                        #    stop()
-                        #    print('    something in the front!!!')
-                        #else:
-                        #    forward()
-                        if left_distan <= 40 and right_distan <=40:
-                            #center()
-                            print('    front have a person but left and right have not enough distans!!!')
-                        elif left_distan > 40 and right_distan <= 40:
-                            #left()
-                            #time.sleep(0.40)
-                            #center()
-                            #right()
-                            #time.sleep(0.2)
-                            #center()
-                            print('    forward and turn left!!!')
-                        elif left_distan <= 40 and right_distan > 40:
-                            #right()
-                            #time.sleep(0.40)
-                            #center()
-                            #left()
-                            #time.sleep(0.2)
-                            #center()
-                            print('    forward and turn right!!!')
+                        front_distan = sr04_front()
+                        if front_distan < 50:
+                            stop()
                         else:
-                            #left()
-                            #time.sleep(0.40)
-                            #center()
-                            #right()
-                            #time.sleep(0.2)
-                            #center()
-                            print('    both path can go auto choice left!!!')
+                            forward()
+                        if left_distan <= 40 and right_distan <=40:
+                            center()
+                        elif left_distan > 40 and right_distan <= 40:
+                            left()
+                            time.sleep(0.40)
+                            center()
+                            right()
+                            time.sleep(0.2)
+                            center()
+                        elif left_distan <= 40 and right_distan > 40:
+                            right()
+                            time.sleep(0.40)
+                            center()
+                            left()
+                            time.sleep(0.2)
+                            center()
+                        else:
+                            left()
+                            time.sleep(0.40)
+                            center()
+                            right()
+                            time.sleep(0.2)
+                            center()
                 else:
-                    print('have object but not in the mid!!!')
+                    print('图像中有物体但不在中间，直接忽略，但是还是可以在这一帧中利用超声波传感器稍微调整一下')
                     if frames % inner_skip == 0:
                         right_distan = sr04_right()
                         left_distan = sr04_left()
-                        front_distan = 100 #sr04_front()
-                        #if front_distan < 50:
-                        #    stop()
-                        #    print('    front have not enough distan!!!')
-                        #else:
-                        #    forward())
+                        front_distan = sr04_front()
+                        if front_distan < 50:
+                            stop()
+                        else:
+                            forward())
                         if right_distan >= 100:
-                            print('    go right a bit!!!')
-                            #right()
-                            #time.sleep(0.40)
-                            #center()
-                            #left()
-                            #time.sleep(0.2)
-                            #center()
+                            right()
+                            time.sleep(0.40)
+                            center()
+                            left()
+                            time.sleep(0.2)
+                            center()
                         else:
                             if left_distan >= 100:
-                                print('    go left a bit !!!')
-                                #left()
-                                #time.sleep(0.40)
-                                #center()
-                                #right()
-                                #time.sleep(0.2)
-                                #center()
+                                left()
+                                time.sleep(0.40)
+                                center()
+                                right()
+                                time.sleep(0.2)
+                                center()
                             else:
-                                #center()
-                                print('    forward but both way have no distan to turn')
+                                center()
         else:
-            print('no object in this frame')
+            print('图像中没有物体，此类现象最多，可以每帧进行微调')
             if frames % inner_skip == 0:
-                right_distan = 100 #sr04_right()
-                left_distan = 100 #sr04_left()
-                front_distan = 100   #sr04_front()
-                #if front_distan < 50:
-                #    stop()
-                #    print('    front have not enough distan!!!')
-                #else:
-                #    forward()
+                right_distan = sr04_right()
+                left_distan = sr04_left()
+                front_distan = sr04_front()
+                if front_distan < 50:
+                    stop()
+                else:
+                    forward()
                 if right_distan >= 100:
-                    print('    go right a bit!!!')
-                    #right()
-                    #time.sleep(0.2)
-                    #center()
-                    #left()
-                    #time.sleep(0.1)
-                    #center()
+                    right()
+                    time.sleep(0.2)
+                    center()
+                    left()
+                    time.sleep(0.1)
+                    center()
                 else:
                     if left_distan >= 100:
-                        print('    go left a bit !!!')
-                        #left()
-                        #time.sleep(0.2)
-                        #center()
-                        #right()
-                        #time.sleep(0.1)
-                        #center()
+                        left()
+                        time.sleep(0.2)
+                        center()
+                        right()
+                        time.sleep(0.1)
+                        center()
                     else:
-                        #center()
-                        print('    forward but both way have no distan to turn')
+                        center()
     else:
         continue
