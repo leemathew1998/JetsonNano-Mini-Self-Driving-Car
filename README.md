@@ -1,6 +1,6 @@
 # Making a self-driving car with Jetson Nano
 # 自动驾驶小车
-![](./assets/20190627214116.png)
+![](https://github.com/leemathew1998/JetsonNano-Mini-Self-Driving-Car/blob/master/assets/20190627214116.png)
 ![](./assets/20190627214137.png)
 # 超声波传感器 HC-SR04
 ![](./assets/20190627214029.png)
